@@ -29,24 +29,81 @@ class Database:
     def insert_data(self, data_dir):
         site_name = os.path.basename(data_dir)
         for subject in os.listdir(data_dir):
-            session_count = 0
             subject_dir = os.path.join(data_dir, subject)
             if os.path.isdir(subject_dir) and subject.startswith("sub-"):  # Check if the item is a directory
                 subject_id = subject[len('sub-'):]
-                for session in os.listdir(subject_dir):
-                    session_path = os.path.join(subject_dir, session)
-                    if os.path.isdir(session_path) and session.startswith('ses-'):
-                        unique_id = subject_id + '_' + session
-                        new_session = Session(session_id=unique_id, 
-                                              subject_id=subject_id, 
-                                              site=site_name)
-                        self.insert_session(new_session)
-                        session_count += 1
-                        
+                session_count = self.loop_sessions(subject_dir=subject_dir, site_name=site_name, subject_id=subject_id)
                 new_sub = Subject(subject_id=subject_id, 
                                   site=site_name, 
                                   sessions=session_count)
                 self.insert_subject(new_sub)
+    
+    '''
+    Loop over subjects in dir
+    Returns session count for one subject
+    '''
+    def loop_sessions(self, subject_dir, site_name, subject_id):
+        session_count = 0
+        for session in os.listdir(subject_dir):
+            session_path = os.path.join(subject_dir, session)
+            if os.path.isdir(session_path) and session.startswith('ses-'):
+                unique_id = subject_id + '_' + session
+                new_session = Session(session_id=unique_id,
+                                      subject_id=subject_id,
+                                      site=site_name)
+                self.insert_session(new_session)
+                session_count += 1
+        
+        return session_count
+    
+    '''
+    Loop over NIFTI files in a directory and add them all to the database
+    '''
+    def loop_images(self, session_dir):
+    
+    '''
+    Function to add an image to the database
+    '''
+    def insert_image(self, image):
+        
+        ## Check if it is in there already
+        query_check = "SELECT * FROM Image WHERE image_id = ?"
+        self.cursor.execute(query_check, (image.image_id,))
+        existing_image = self.cursor.fetchone()
+        
+        attr_names = tuple(image.__dict__.keys())
+        
+        if existing_image:
+            print("Image already exists in the database:")
+            print("Existing row:", existing_image)
+            
+            new_row_values = tuple(getattr(image, attr) for attr in attr_names)
+            print("New row:", new_row_values)
+            
+            # Check if all attributes are the same
+            all_same = all(existing_image[i] == getattr(image, attr) for i, attr in enumerate(attr_names))
+            
+            if all_same:
+                print("Image is already in database with same attributes, skipping")
+                return
+            
+            choice = input("Do you want to update the existing image? (y/n)")
+            
+            if choice.lower() == "y":
+                query_update = f"UPDATE Image SET {', '.join(f'{name} = ?' for name in attr_names)} WHERE image_id = ?"
+                values = new_row_values + (image.image_id,)
+                self.cursor.execute(query_update, values)
+                self.conn.commit()
+                print("Session updated successfully.")
+            else:
+                print("Session not updated.")
+        else:
+            query_insert = f"INSERT INTO Image {attr_names} VALUES ({', '.join(['?' for _ in attr_names])})"
+            values = tuple(getattr(image, attr) for attr in attr_names)
+            self.cursor.execute(query_insert, values)
+            self.conn.commit()
+            print(f"Session {image.image_id} inserted successfully.")
+        
     
     '''
     Adding a specific session to the database
@@ -78,7 +135,7 @@ class Database:
             
             if choice.lower() == "y":
                 query_update = f"UPDATE Session SET {', '.join(f'{name} = ?' for name in attr_names)} WHERE session_id = ?"
-                values = new_row_values + (session.subject_id,)
+                values = new_row_values + (session.session_id,)
                 self.cursor.execute(query_update, values)
                 self.conn.commit()
                 print("Session updated successfully.")
@@ -157,6 +214,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS Image (
                 image_id INTEGER PRIMARY KEY,
                 session_id TEXT,
+                subject_id TEXT,
                 image_type TEXT,
                 image_path TEXT,
                 run_number INTEGER,
