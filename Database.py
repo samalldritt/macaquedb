@@ -2,6 +2,7 @@
 
 import os
 import sqlite3
+from Subject import Subject
 
 class Database:
 
@@ -12,52 +13,80 @@ class Database:
     def connect(self):
         self.conn = sqlite3.connect(self.db_path)
         self.cursor = self.conn.cursor()
-        
-    def populate(self, inputDir):
-        self.inputData = inputDir
-        directory_names = [item for item in os.listdir(self.inputData) if os.path.isdir(os.path.join(self.inputData, item))] # Get subject paths
-        
-        for subject_path in directory_names:
-            self.populateSubjectTable(subject_path, self.inputData)
-            
-            
-        self.conn.close()
-            
-    def populateSubjectTable(self, filename, root_path):
-        '''
-        ## Data should be in BIDS format, need to grab and populate in this order:
-         - Subject ID (Int)
-         - Site (String)
-         - Session Count (Int)
-         - Gender (Male/Female, String)
-        '''
-        subject_id = filename[len('sub-'):]
-        site = os.path.basename(root_path)
-        
-        ## Count number of sessions
-        session_count = 0
-        sessions = os.listdir(os.path.join(root_path, filename))
-        for session in sessions:
-            session_path = os.path.join(root_path, filename, session)
-            if os.path.isdir(session_path) and session.startswith('ses-'):
-                session_count += 1
-                
-        column_names = ['subject_id', 'site', 'sessions']
-        values = [subject_id, site, session_count]
-        command = f"INSERT INTO 'Subject' ({', '.join(column_names)}) VALUES (?, ?, ?)"
-
-        ## Add to database
-        self.cursor.execute(command, values)
-        
-        self.conn.commit()
-        
-    def removeSite(self, )    
-        
     
+    '''
+    Inserting data through a directory (populating subject tables, session tables, image tables, JSON tables)
+    '''
+    def input(self, data_dir):
+        # Inputting subjects into table
+        self.insert_subjects(data_dir)
+        
+        # Input sessions into table
+        
+        return
+    
+    '''
+    Loop through all subjects in a 'site-' dir and populate or update into the database
+    '''
+    def insert_subjects(self, data_dir):
+        site_name = os.path.basename(data_dir)
+        for subject in os.listdir(data_dir):
+            session_count = 0
+            subject_dir = os.path.join(data_dir, subject)
+            if os.path.isdir(subject_dir) and subject.startswith("sub-"):  # Check if the item is a directory
+                subject_id = subject[len('sub-'):]
+                for session in os.listdir(subject_dir):
+                    session_path = os.path.join(subject_dir, session)
+                    if os.path.isdir(session_path) and session.startswith('ses-'):
+                        self.insert_session(session_dir=session_path, site_name=site_name, subject_id=subject_id)
+                        session_count += 1
+                        
+                new_sub = Subject(subject_id=subject_id, site=site_name, sessions=session_count)
+                self.insert_subject(new_sub)
+    
+    def insert_session(self, session_dir, site_name, subject_id):
+        session_name = os.path.basename(session_dir)
+        unique_id = subject_id + '_' + session_name
+    
+    '''
+    Takes in a subject class and inserts it into the database (checking whether it needs to be updated first)
+    '''
+    def insert_subject(self, subject):
+        query_check = "SELECT * FROM Subject WHERE subject_id = ?"
+        self.cursor.execute(query_check, (subject.subject_id,))
+        existing_subject = self.cursor.fetchone()
+        
+        attr_names = tuple(subject.__dict__.keys())
+
+        if existing_subject:
+            print("Subject already exists in the database:")
+            print("Existing row:", existing_subject)
+
+            new_row_values = tuple(getattr(subject, attr) for attr in attr_names)
+            print("New row:", new_row_values)
+            
+            choice = input("Do you want to update the existing subject? (y/n): ")
+
+            if choice.lower() == 'y':
+                query_update = f"UPDATE Subject SET {', '.join(f'{name} = ?' for name in attr_names)} WHERE subject_id = ?"
+                values = new_row_values + (subject.subject_id,)
+                self.cursor.execute(query_update, values)
+                self.conn.commit()
+                print("Subject updated successfully.")
+            else:
+                print("Subject not updated.")
+        else:
+            query_insert = f"INSERT INTO Subject {attr_names} VALUES ({', '.join(['?' for _ in attr_names])})"
+            print(query_insert)
+            values = tuple(getattr(subject, attr) for attr in attr_names)
+            self.cursor.execute(query_insert, values)
+            self.conn.commit()
+            print("Subject inserted successfully.")
+        
     def build(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Subject (
-                subject_id INTEGER PRIMARY KEY,
+                subject_id TEXT PRIMARY KEY,
                 site TEXT,
                 sessions INTEGER,
                 gender TEXT CHECK(gender IN ('MALE', 'FEMALE'))
@@ -66,11 +95,10 @@ class Database:
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Session (
-                session_id INTEGER PRIMARY KEY,
-                subject_id INTEGER,
+                session_id TEXT PRIMARY KEY,
+                subject_id TEXT,
                 age DOUBLE,
                 site TEXT,
-                sessions INT,
                 FOREIGN KEY (subject_id) REFERENCES Subject (subject_id)
             )
         ''')
@@ -78,7 +106,7 @@ class Database:
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Image (
                 image_id INTEGER PRIMARY KEY,
-                session_id INTEGER,
+                session_id TEXT,
                 image_type TEXT,
                 image_path TEXT,
                 run_number INTEGER,

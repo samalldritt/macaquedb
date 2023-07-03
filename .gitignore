@@ -1,2 +1,5 @@
 *.db
+*.db-journal
 Data/
+Notes.txt
+test.ipynb
