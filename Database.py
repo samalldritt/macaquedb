@@ -2,8 +2,12 @@
 
 import os
 import sqlite3
+import re
+import uuid
 from Subject import Subject
 from Session import Session
+from Image import Image
+from utilities import *
 
 class Database:
 
@@ -52,6 +56,9 @@ class Database:
                                       subject_id=subject_id,
                                       site=site_name)
                 self.insert_session(new_session)
+                
+                ## Also loop all the images within this session
+                self.loop_images(session_dir=session_path, subject_id=subject_id, session_id=unique_id)
                 session_count += 1
         
         return session_count
@@ -59,7 +66,24 @@ class Database:
     '''
     Loop over NIFTI files in a directory and add them all to the database
     '''
-    def loop_images(self, session_dir):
+    def loop_images(self, session_dir, subject_id, session_id):
+        # Walk through every file in session (anat, dwi, fieldmap, func)
+        for root, dirs, files in os.walk(session_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                abs_file_path = os.path.abspath(file)
+                if is_nifti_file(file_path):
+                    run_number = re.search(r"run-(\d+)", file)
+                    run_number = run_number.group(1)
+                    new_image = Image(image_id=str(session_id + '_' + 'run-' + run_number),
+                                      session_id=session_id, 
+                                      subject_id=subject_id,
+                                      image_type=os.path.basename(file_path),
+                                      image_path=abs_file_path,
+                                      run_number=run_number)
+                    self.insert_image(new_image)
+            
+        pass
     
     '''
     Function to add an image to the database
@@ -94,15 +118,15 @@ class Database:
                 values = new_row_values + (image.image_id,)
                 self.cursor.execute(query_update, values)
                 self.conn.commit()
-                print("Session updated successfully.")
+                print("Image updated successfully.")
             else:
-                print("Session not updated.")
+                print("Image not updated.")
         else:
             query_insert = f"INSERT INTO Image {attr_names} VALUES ({', '.join(['?' for _ in attr_names])})"
             values = tuple(getattr(image, attr) for attr in attr_names)
             self.cursor.execute(query_insert, values)
             self.conn.commit()
-            print(f"Session {image.image_id} inserted successfully.")
+            print(f"Image {image.image_id} inserted successfully.")
         
     
     '''
@@ -212,7 +236,7 @@ class Database:
 
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Image (
-                image_id INTEGER PRIMARY KEY,
+                image_id TEXT PRIMARY KEY,
                 session_id TEXT,
                 subject_id TEXT,
                 image_type TEXT,
