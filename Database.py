@@ -52,13 +52,14 @@ class Database:
             session_path = os.path.join(subject_dir, session)
             if os.path.isdir(session_path) and session.startswith('ses-'):
                 unique_id = subject_id + '_' + session
+                ## Also loop all the images within this session
+                image_count = self.loop_images(session_dir=session_path, subject_id=subject_id, session_id=unique_id, site=site_name)  
                 new_session = Session(session_id=unique_id,
                                       subject_id=subject_id,
-                                      site=site_name)
+                                      site=site_name,
+                                      image_count=image_count)
                 self.insert_session(new_session)
                 
-                ## Also loop all the images within this session
-                self.loop_images(session_dir=session_path, subject_id=subject_id, session_id=unique_id)
                 session_count += 1
         
         return session_count
@@ -66,8 +67,9 @@ class Database:
     '''
     Loop over NIFTI files in a directory and add them all to the database
     '''
-    def loop_images(self, session_dir, subject_id, session_id):
+    def loop_images(self, session_dir, subject_id, session_id, site):
         # Walk through every file in session (anat, dwi, fieldmap, func)
+        image_count = 0
         for root, dirs, files in os.walk(session_dir):
             for file in files:
                 file_path = os.path.join(root, file)
@@ -75,15 +77,17 @@ class Database:
                 if is_nifti_file(file_path):
                     run_number = re.search(r"run-(\d+)", file)
                     run_number = run_number.group(1)
-                    new_image = Image(image_id=str(session_id + '_' + 'run-' + run_number),
+                    new_image = Image(image_id=file,
                                       session_id=session_id, 
                                       subject_id=subject_id,
-                                      image_type=os.path.basename(file_path),
+                                      image_type=os.path.basename(root),
                                       image_path=abs_file_path,
-                                      run_number=run_number)
+                                      run_number=run_number,
+                                      site=site)
                     self.insert_image(new_image)
+                    image_count += 1
             
-        pass
+        return image_count
     
     '''
     Function to add an image to the database
@@ -208,7 +212,6 @@ class Database:
                 print("Subject not updated.")
         else:
             query_insert = f"INSERT INTO Subject {attr_names} VALUES ({', '.join(['?' for _ in attr_names])})"
-            print(query_insert)
             values = tuple(getattr(subject, attr) for attr in attr_names)
             self.cursor.execute(query_insert, values)
             self.conn.commit()
@@ -230,6 +233,7 @@ class Database:
                 subject_id TEXT,
                 age DOUBLE,
                 site TEXT,
+                image_count INT,
                 FOREIGN KEY (subject_id) REFERENCES Subject (subject_id)
             )
         ''')
@@ -242,6 +246,7 @@ class Database:
                 image_type TEXT,
                 image_path TEXT,
                 run_number INTEGER,
+                site TEXT,
                 FOREIGN KEY (session_id) REFERENCES Session (session_id)
             )
         ''')
