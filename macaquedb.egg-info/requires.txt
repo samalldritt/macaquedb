@@ -1,6 +1,0 @@
-libgcc-ng>=11.2.0
-libgomp>=11.2.0
-ncurses>=6.4
-readline>=8.2
-sqlite>=3.40.1
-zlib>=1.2.13
