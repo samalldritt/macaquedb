@@ -69,20 +69,34 @@ class Database:
     '''
     def loop_images(self, session_dir, subject_id, session_id, site):
         # Walk through every file in session (anat, dwi, fieldmap, func)
-        image_count = 0
+        image_count = 1
         for root, dirs, files in os.walk(session_dir):
             for file in files:
                 file_path = os.path.join(root, file)
                 abs_file_path = os.path.abspath(file)
+                ## Get file type and subtype
+                image_type = os.path.basename(root)
+
+                if image_type == "anat":
+                    if re.search(r"T1w", file):
+                        image_subtype = "T1w"
+                    elif re.search(r"T2w", file):
+                        image_subtype = "T2w"
+                    else:
+                        image_subtype = "unknown"
+                elif image_type == "func":
+                    if re.search(r"bold", file) or re.search(r"BOLD", file):
+                        image_subtype = "bold"
+                    else:
+                        image_subtype = "unknown"
                 if is_nifti_file(file_path):
-                    run_number = re.search(r"run-(\d+)", file)
-                    run_number = run_number.group(1)
                     new_image = Image(image_id=file,
                                       session_id=session_id, 
                                       subject_id=subject_id,
                                       image_type=os.path.basename(root),
+                                      image_subtype=image_subtype,
                                       image_path=abs_file_path,
-                                      run_number=run_number,
+                                      run_number=image_count,
                                       site=site)
                     self.insert_image(new_image)
                     image_count += 1
@@ -244,7 +258,9 @@ class Database:
                 session_id TEXT,
                 subject_id TEXT,
                 image_type TEXT,
+                image_subtype TEXT,
                 image_path TEXT,
+                mask_path TEXT,
                 run_number INTEGER,
                 site TEXT,
                 FOREIGN KEY (session_id) REFERENCES Session (session_id)
@@ -262,6 +278,25 @@ class Database:
 
         self.conn.commit()
         return
+
+    def wipe(self):
+        try:
+            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            table_names = self.cursor.fetchall()
+
+            ## Loop through all the tables and delete all the data
+            for table in table_names:
+                table_name = table[0]
+                self.cursor.execute(f"DELETE FROM {table_name};")
+
+            self.conn.commit()
+            print("All data wiped from the database")
+
+        except sqlite3.Error as e:
+            print(e)
+
+        return
+
     
     def close(self):
         self.conn.close()
