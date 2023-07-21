@@ -1,0 +1,12 @@
+setup.py
+macaquedb.egg-info/PKG-INFO
+macaquedb.egg-info/SOURCES.txt
+macaquedb.egg-info/dependency_links.txt
+macaquedb.egg-info/requires.txt
+macaquedb.egg-info/top_level.txt
+package/Database.py
+package/Image.py
+package/Session.py
+package/Subject.py
+package/__init__.py
+package/utilities.py
