@@ -3,7 +3,8 @@
 import os
 import sqlite3
 import re
-import uuid
+import csv
+import pandas as pd
 from .database.Subject import Subject
 from .database.Session import Session
 from .database.Image import Image
@@ -21,19 +22,10 @@ class Database:
         self.cursor = self.conn.cursor()
 
     '''
-    Inserting data through a directory (populating subject tables, session tables, image tables, JSON tables)
-    '''
-
-    def input(self, data_dir):
-        # Inputting data into the table into table
-        self.insert_data(data_dir)
-        return
-
-    '''
     Loop through all subjects in a 'site-' dir and populate or update into the database
     '''
 
-    def insert_data(self, data_dir):
+    def input_site(self, data_dir):
         site_name = os.path.basename(data_dir)
         for subject in os.listdir(data_dir):
             subject_dir = os.path.join(data_dir, subject)
@@ -46,6 +38,20 @@ class Database:
                                   site=site_name,
                                   sessions=session_count)
                 self.insert_subject(new_sub)
+
+    '''
+    Input one specific subject
+    '''
+
+    def input_subject(self, subject_dir, site_name):
+        subject_id = os.path.basename(subject_dir)
+        subject_id = subject_id[len('sub-'):]
+        session_count = self.loop_session(
+            subject_dir=subject_dir, site_name=site_name, subject_id=subject_id)
+        new_sub = Subject(subject_id=subject_id,
+                          site=site_name,
+                          sessions=session_count)
+        self.insert_subject(new_sub)
 
     '''
     Loop over subjects in dir
@@ -247,6 +253,57 @@ class Database:
             self.conn.commit()
             print(f"Subject {subject.subject_id} inserted successfully.")
 
+    def to_csv(self, csv_path, table_name, index=False):
+        table = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
+        table.to_csv(csv_path, index=index)
+
+    '''
+    Function that prints all the colnames from each table
+    '''
+
+    def getColumnNames(self):
+        self.cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';")
+        tables = self.cursor.fetchall()
+        unique_columns = set()
+        for table in tables:
+            table_name = table[0]
+            self.cursor.execute(f"PRAGMA table_info({table_name});")
+            columns = self.cursor.fetchall()
+            column_names = [column[1] for column in columns]
+            unique_columns.update(column_names)
+        return unique_columns
+
+    '''
+    Function to take in column names and return a CSV file with those colnames
+    '''
+
+    def make_csv(self, col_names, output_file):
+        self.cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';")
+        tables = self.cursor.fetchall()
+        unique_columns = self.getColumnsNames
+        invalid_columns = set(col_names) - unique_columns
+        if invalid_columns:
+            print(f"Invalid column names: {', '.join(invalid_columns)}")
+            return
+
+        with open(output_file, 'w', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow(col_names)
+
+            for table in tables:
+                table_name = table[0]
+                columns_str = ", ".join(col_names)
+                select_query = f"SELECT {columns_str} FROM {table_name};"
+                self.cursor.execute(select_query)
+                data = self.cursor.fetchall()
+                csv_writer.writerows(data)
+
+    def to_table(self, table_name):
+        table = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
+        return table
+
     def build(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Subject (
@@ -295,6 +352,11 @@ class Database:
         self.conn.commit()
         return
 
+    def changePath(self, db_path):
+        self.conn.close()
+        self.db_path = db_path
+        self.connect()
+
     def wipe(self):
         try:
             self.cursor.execute(
@@ -316,3 +378,7 @@ class Database:
 
     def close(self):
         self.conn.close()
+
+    def getPath(self):
+        print(f"Current db path: {self.db_path}")
+        return

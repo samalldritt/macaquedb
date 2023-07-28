@@ -4,6 +4,7 @@ macaquedb/__init__.py
 macaquedb.egg-info/PKG-INFO
 macaquedb.egg-info/SOURCES.txt
 macaquedb.egg-info/dependency_links.txt
+macaquedb.egg-info/requires.txt
 macaquedb.egg-info/top_level.txt
 macaquedb/database/Image.py
 macaquedb/database/Session.py

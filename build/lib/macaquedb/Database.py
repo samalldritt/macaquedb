@@ -3,7 +3,8 @@
 import os
 import sqlite3
 import re
-import uuid
+import csv
+import pandas as pd
 from .database.Subject import Subject
 from .database.Session import Session
 from .database.Image import Image
@@ -247,6 +248,14 @@ class Database:
             self.conn.commit()
             print(f"Subject {subject.subject_id} inserted successfully.")
 
+    def to_csv(self, csv_path, table_name, index=False):
+        table = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
+        table.to_csv(csv_path, index=index)
+
+    def to_table(self, table_name):
+        table = pd.read_sql(f"SELECT * FROM {table_name}", self.conn)
+        return table
+
     def build(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS Subject (
@@ -294,6 +303,11 @@ class Database:
 
         self.conn.commit()
         return
+
+    def changePath(self, db_path):
+        self.conn.close()
+        self.db_path = db_path
+        self.connect()
 
     def wipe(self):
         try:
