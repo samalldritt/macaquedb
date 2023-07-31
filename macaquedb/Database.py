@@ -87,7 +87,6 @@ class Database:
         for root, dirs, files in os.walk(session_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                abs_file_path = os.path.abspath(file)
                 # Get file type and subtype
                 image_type = os.path.basename(root)
 
@@ -121,7 +120,7 @@ class Database:
                                       subject_id=subject_id,
                                       image_type=os.path.basename(root),
                                       image_subtype=image_subtype,
-                                      image_path=abs_file_path,
+                                      image_path=file_path,
                                       run_number=run_number,
                                       site=site)
                     self.insert_image(new_image, force)
@@ -284,7 +283,7 @@ class Database:
     Function to insert demographic information into the database
     '''
 
-    def insert_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
+    def input_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
         df = pd.read_csv(csv_path, dtype={
                          subject_column: str, session_column: str, age_column: str})
         for index, row in df.iterrows():
