@@ -5,10 +5,10 @@ import sqlite3
 import re
 import csv
 import pandas as pd
-from database.Subject import Subject
-from database.Session import Session
-from database.Image import Image
-from database.utilities import *
+from .database.Subject import Subject
+from .database.Session import Session
+from .database.Image import Image
+from .database.utilities import *
 
 
 class Database:
@@ -110,6 +110,11 @@ class Database:
                         image_subtype = "PA"
                     else:
                         image_subtype = "unknown"
+
+                # Find the run
+                match = re.search(r"run-(\d+)", file)
+                run_number = match.group(1)
+
                 if is_nifti_file(file_path):
                     new_image = Image(image_id=file,
                                       session_id=session_id,
@@ -117,7 +122,7 @@ class Database:
                                       image_type=os.path.basename(root),
                                       image_subtype=image_subtype,
                                       image_path=abs_file_path,
-                                      run_number=image_count,
+                                      run_number=run_number,
                                       site=site)
                     self.insert_image(new_image, force)
                     image_count += 1
@@ -288,25 +293,40 @@ class Database:
             csv_age = row[age_column]
             csv_sex = row[sex_column]
 
+            if csv_subject_id == "032213":
+                print(csv_subject_id)
+
             sql_session_id = f"{csv_subject_id}_{csv_session_id}"
 
-            sex_query = f"""
-                INSERT INTO Subjects (subject_id, sex)
-                Values (?, ?)
-                ON CONFLICT(subject_id) DO UPDATE SET sex = excluded.sex
-             """
+            # Check if the subject exists in the Subjects table
+            subject_query = "SELECT COUNT(*) FROM Subjects WHERE subject_id = ?"
+            self.cursor.execute(subject_query, (csv_subject_id,))
+            subject_exists = self.cursor.fetchone()[0]
 
-            self.cursor.execute(sex_query, (csv_subject_id, csv_sex))
-            self.conn.commit()
+            if subject_exists:
+                # Insert or update the sex in Subjects table
+                sex_query = """
+                    INSERT INTO Subjects (subject_id, sex)
+                    VALUES (?, ?)
+                    ON CONFLICT(subject_id) DO UPDATE SET sex = excluded.sex
+                """
+                self.cursor.execute(sex_query, (csv_subject_id, csv_sex))
+                self.conn.commit()
 
-            age_query = f"""
-                INSERT INTO Sessions (session_id, age)
-                Values (?, ?)
-                ON CONFLICT(session_id) DO UPDATE SET age = excluded.age
-             """
+            # Check if the session exists in the Sessions table
+            session_query = "SELECT COUNT(*) FROM Sessions WHERE session_id = ?"
+            self.cursor.execute(session_query, (sql_session_id,))
+            session_exists = self.cursor.fetchone()[0]
 
-            self.cursor.execute(age_query, (sql_session_id, csv_age))
-            self.conn.commit()
+            if session_exists:
+                # Insert or update the age in Sessions table
+                age_query = """
+                    INSERT INTO Sessions (session_id, age)
+                    VALUES (?, ?)
+                    ON CONFLICT(session_id) DO UPDATE SET age = excluded.age
+                """
+                self.cursor.execute(age_query, (sql_session_id, csv_age))
+                self.conn.commit()
 
         return
 
@@ -371,7 +391,7 @@ class Database:
                 subject_id TEXT PRIMARY KEY,
                 site TEXT,
                 sessions INTEGER,
-                sex TEXT CHECK(sex IN ('M', 'F'))
+                sex TEXT
             )
         ''')
 
