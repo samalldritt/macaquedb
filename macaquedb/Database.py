@@ -269,6 +269,41 @@ class Database:
         table.to_csv(csv_path, index=index)
 
     '''
+    Function to insert demographic information into the database
+    '''
+
+    def insert_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
+        df = pd.read_csv(csv_path)
+        for index, row in df.iterrows():
+            csv_subject_id = row[subject_column]
+            csv_session_id = row[session_column]
+            csv_age = row[age_column]
+            csv_sex = row[sex_column]
+
+            sql_session_id = f"{csv_subject_id}_{csv_session_id}"
+            print(sql_session_id)
+
+            # sex_query = f"""
+            #    INSERT INTO Subjects (subject_id, sex)
+            #    Values (?, ?)
+            #    ON CONFLICT(subject_id) DO UPDATE SET sex = excluded.sex
+            # """
+#
+            # self.cursor.execute(sex_query, (csv_subject_id, csv_sex))
+            # self.cursor.commit()
+#
+            # age_query = f"""
+            #    INSERT INTO Sessions (session_id, age)
+            #    Values (?, ?)
+            #    ON CONFLICT(session_id) DO UPDATE SET age = excluded.age
+            # """
+#
+            # self.cursor.execute(age_query, (csv_session_id, csv_age))
+            # self.cursor.commit()
+
+        return
+
+    '''
     Function that prints all the colnames from each table
     '''
 

@@ -3,3 +3,6 @@
 Data/
 Notes.txt
 test.ipynb
+macaquedb.egg-info
+dist/
+build/
