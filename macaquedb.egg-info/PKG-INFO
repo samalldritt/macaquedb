@@ -1,7 +1,0 @@
-Metadata-Version: 2.1
-Name: macaquedb
-Version: 1.0.0
-Summary: SQLite Database interface for PRIME-DE data
-Home-page: https://github.com/samalldritt/macaquedb
-Author: Sam Alldritt
-Author-email: samuel.alldritt@childmind.org
