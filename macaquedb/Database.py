@@ -63,7 +63,7 @@ class Database:
         for session in os.listdir(subject_dir):
             session_path = os.path.join(subject_dir, session)
             if os.path.isdir(session_path) and session.startswith('ses-'):
-                unique_id = subject_id + '_' + session
+                unique_id = subject_id + '_' + session[len('ses-'):]
                 # Also loop all the images within this session
                 image_count = self.loop_images(
                     session_dir=session_path, subject_id=subject_id, session_id=unique_id, site=site_name, force=force)
@@ -101,6 +101,13 @@ class Database:
                 elif image_type == "func":
                     if re.search(r"bold", file) or re.search(r"BOLD", file):
                         image_subtype = "bold"
+                    else:
+                        image_subtype = "unknown"
+                elif image_type == "dwi":
+                    if re.search(r"AP", file) or re.search(r"ap", file):
+                        image_subtype = "AP"
+                    elif re.search(r"PA", file) or re.search(r"pa", file):
+                        image_subtype = "PA"
                     else:
                         image_subtype = "unknown"
                 if is_nifti_file(file_path):
@@ -273,7 +280,8 @@ class Database:
     '''
 
     def insert_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path, dtype={
+                         subject_column: str, session_column: str, age_column: str})
         for index, row in df.iterrows():
             csv_subject_id = row[subject_column]
             csv_session_id = row[session_column]
@@ -281,25 +289,24 @@ class Database:
             csv_sex = row[sex_column]
 
             sql_session_id = f"{csv_subject_id}_{csv_session_id}"
-            print(sql_session_id)
 
-            # sex_query = f"""
-            #    INSERT INTO Subjects (subject_id, sex)
-            #    Values (?, ?)
-            #    ON CONFLICT(subject_id) DO UPDATE SET sex = excluded.sex
-            # """
-#
-            # self.cursor.execute(sex_query, (csv_subject_id, csv_sex))
-            # self.cursor.commit()
-#
-            # age_query = f"""
-            #    INSERT INTO Sessions (session_id, age)
-            #    Values (?, ?)
-            #    ON CONFLICT(session_id) DO UPDATE SET age = excluded.age
-            # """
-#
-            # self.cursor.execute(age_query, (csv_session_id, csv_age))
-            # self.cursor.commit()
+            sex_query = f"""
+                INSERT INTO Subjects (subject_id, sex)
+                Values (?, ?)
+                ON CONFLICT(subject_id) DO UPDATE SET sex = excluded.sex
+             """
+
+            self.cursor.execute(sex_query, (csv_subject_id, csv_sex))
+            self.conn.commit()
+
+            age_query = f"""
+                INSERT INTO Sessions (session_id, age)
+                Values (?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET age = excluded.age
+             """
+
+            self.cursor.execute(age_query, (sql_session_id, csv_age))
+            self.conn.commit()
 
         return
 
@@ -364,7 +371,7 @@ class Database:
                 subject_id TEXT PRIMARY KEY,
                 site TEXT,
                 sessions INTEGER,
-                sex TEXT CHECK(sex IN ('MALE', 'FEMALE'))
+                sex TEXT CHECK(sex IN ('M', 'F'))
             )
         ''')
 
