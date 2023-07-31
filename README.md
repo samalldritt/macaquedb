@@ -25,14 +25,14 @@ interface.changePath('/new/path/to/database')
 ```
 ## Tables and adding data
 In the current version, we have 4 tables that are connected:
-### Subject:
+### Subjects:
 | Column Name | Data Type         |
 |-------------|------------------|
 | subject_id  | TEXT (Primary Key)|
 | site        | TEXT             |
 | sessions    | INTEGER          |
 | gender      | TEXT             |
-### Session:
+### Sessions:
 | Column Name | Data Type         | References         |
 |-------------|------------------|--------------------|
 | session_id  | TEXT (Primary Key)|                    |
@@ -40,7 +40,7 @@ In the current version, we have 4 tables that are connected:
 | age         | DOUBLE           |                    |
 | site        | TEXT             |                    |
 | image_count | INT              |                    |
-### Image:
+### Images:
 | Column Name   | Data Type         | References         |
 |---------------|------------------|--------------------|
 | image_id      | TEXT (Primary Key)|                    |
@@ -52,9 +52,21 @@ In the current version, we have 4 tables that are connected:
 | mask_path     | TEXT             |                    |
 | run_number    | INTEGER          |                    |
 | site          | TEXT             |                    |
-### JSON
+### JSONS
 | Column Name | Data Type        | References      |
 |-------------|------------------|-----------------|
 | json_id     | INTEGER (Primary Key)|               |
 | image_id    | INTEGER          | Image(image_id) |
 | json_path   | TEXT             |                 |
+
+To add data:
+```
+interface.input_site('/path/to/site-site')
+interface.input_demographics(csv_path='/path/to/csv.csv', subject_column='SubColName', session_column='SesColName', age_column='AgeColName', sex_column='SexColName')
+```
+You can also pick and choose any column you want to extract and return a pandas dataframe or just export straight to a CSV
+Extracting data:
+```
+colNamesToExtract = ("subject_id", "session_id", "age", "sex", "image_path", "run_number")
+dataframe = interface.make_csv(colNamesToExtract, '/path/to/output.csv')
+```
