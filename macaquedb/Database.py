@@ -75,6 +75,16 @@ class Database:
 
                 session_count += 1
 
+            elif session.startswith('anat') or session.startswith('func'):
+                unique_id = subject_id + '_001'
+                image_count = self.loop_images(
+                    session_dir=subject_dir, subject_id=subject_id, session_id=unique_id, site=site_name, force=force)
+                new_session = Session(session_id=unique_id,
+                                      subject_id=subject_id,
+                                      site=site_name,
+                                      image_count=image_count)
+                self.insert_session(new_session, force)
+
         return session_count
 
     '''
@@ -111,8 +121,11 @@ class Database:
                         image_subtype = "unknown"
 
                 # Find the run
-                match = re.search(r"run-(\d+)", file)
-                run_number = match.group(1)
+                match = re.search(r"run[-_](\d+)?", file)
+                if match:
+                    run_number = match.group(1)
+                else:
+                    run_number = None
 
                 if is_nifti_file(file_path):
                     new_image = Image(image_id=file,
@@ -283,7 +296,7 @@ class Database:
     Function to insert demographic information into the database
     '''
 
-    def input_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
+    def insert_demographics(self, csv_path, subject_column, session_column, age_column, sex_column):
         df = pd.read_csv(csv_path, dtype={
                          subject_column: str, session_column: str, age_column: str})
         for index, row in df.iterrows():

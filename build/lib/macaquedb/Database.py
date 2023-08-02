@@ -75,6 +75,16 @@ class Database:
 
                 session_count += 1
 
+            elif session.startswith('anat') or session.startswith('func'):
+                unique_id = subject_id + '_001'
+                image_count = self.loop_images(
+                    session_dir=subject_dir, subject_id=subject_id, session_id=unique_id, site=site_name, force=force)
+                new_session = Session(session_id=unique_id,
+                                      subject_id=subject_id,
+                                      site=site_name,
+                                      image_count=image_count)
+                self.insert_session(new_session, force)
+
         return session_count
 
     '''
@@ -87,7 +97,6 @@ class Database:
         for root, dirs, files in os.walk(session_dir):
             for file in files:
                 file_path = os.path.join(root, file)
-                abs_file_path = os.path.abspath(file)
                 # Get file type and subtype
                 image_type = os.path.basename(root)
 
@@ -110,14 +119,22 @@ class Database:
                         image_subtype = "PA"
                     else:
                         image_subtype = "unknown"
+
+                # Find the run
+                match = re.search(r"run[-_](\d+)?", file)
+                if match:
+                    run_number = match.group(1)
+                else:
+                    run_number = None
+
                 if is_nifti_file(file_path):
                     new_image = Image(image_id=file,
                                       session_id=session_id,
                                       subject_id=subject_id,
                                       image_type=os.path.basename(root),
                                       image_subtype=image_subtype,
-                                      image_path=abs_file_path,
-                                      run_number=image_count,
+                                      image_path=file_path,
+                                      run_number=run_number,
                                       site=site)
                     self.insert_image(new_image, force)
                     image_count += 1
