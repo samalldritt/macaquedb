@@ -2,9 +2,11 @@
 *.db-journal
 Data/
 Notes.txt
-test.ipynb
+testing.ipynb
 macaquedb.egg-info
 dist/
 build/
 */*ipynb
 *.csv
+*.txt
+logs/

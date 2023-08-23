@@ -5,10 +5,10 @@ import sqlite3
 import re
 import csv
 import pandas as pd
-from database.Subject import Subject
-from database.Session import Session
-from database.Image import Image
-from database.utilities import *
+from .database.Subject import Subject
+from .database.Session import Session
+from .database.Image import Image
+from .database.utilities import *
 
 
 class Database:
@@ -304,10 +304,6 @@ class Database:
             csv_session_id = row[session_column]
             csv_age = row[age_column]
             csv_sex = row[sex_column]
-
-            if csv_subject_id == "032213":
-                print(csv_subject_id)
-
             sql_session_id = f"{csv_subject_id}_{csv_session_id}"
 
             # Check if the subject exists in the Subjects table
